@@ -161,9 +161,8 @@
                 event.pub(WEBRTC_ICE_CANDIDATE_RECEIVED, {candidate: payload});
                 break;
             case api.endpoint.GAME_START:
-                if (payload.av) {
-                    event.pub(APP_VIDEO_CHANGED, payload.av)
-                }
+                payload.av && event.pub(APP_VIDEO_CHANGED, payload.av)
+                payload.kb_mouse && event.pub(KB_MOUSE_FLAG);
                 event.pub(GAME_ROOM_AVAILABLE, {roomId: payload.roomId});
                 break;
             case api.endpoint.GAME_SAVE:
@@ -211,25 +210,6 @@
 
         state.keyPress(data.key, data.code);
     };
-
-    // Feature detection.
-    const supportsKeyboardLock =
-        ('keyboard' in navigator) && ('lock' in navigator.keyboard);
-
-    if (supportsKeyboardLock) {
-        document.addEventListener('fullscreenchange', async () => {
-            if (document.fullscreenElement) {
-                await navigator.keyboard.lock();
-                keyboard.toggle(false);
-                return console.log('Keyboard locked.');
-            }
-            navigator.keyboard.unlock();
-            keyboard.toggle(true);
-            console.log('Keyboard unlocked.');
-        });
-    } else {
-        console.warn('Browser doesn\'t support keyboard lock!');
-    }
 
     // pre-state key release handler
     const onKeyRelease = data => {
@@ -379,31 +359,13 @@
                 ..._default,
                 name: 'game',
                 axisChanged: (id, value) => input.setAxisChanged(id, value),
-                keyboardInput: (down, e) => {
-                    const buffer = new ArrayBuffer(7);
-                    const dv = new DataView(buffer);
-
-                    // 0 1 2 3 4 5 6
-                    dv.setUint8(4, down ? 1 : 0)
-                    const k = libretro.map('', e.code);
-                    dv.setUint32(0, k, true)
-
-                    // meta keys
-                    let mod = 0;
-
-                    e.altKey && (mod |= libretro.mod.ALT)
-                    e.ctrlKey && (mod |= libretro.mod.CTRL)
-                    e.metaKey && (mod |= libretro.mod.META)
-                    e.shiftKey && (mod |= libretro.mod.SHIFT)
-
-                    dv.setUint16(5, mod, true)
-
-                    webrtc.keyboard(buffer);
-                },
-                keyPress: (key, code) => {
+                keyboardInput: (pressed, e) => api.game.input.keyboard.press(pressed, e),
+                mouseMove: (e) => api.game.input.mouse.move(e.dx, e.dy),
+                mousePress: (e) => api.game.input.mouse.press(e.b, e.p),
+                keyPress: (key) => {
                     input.setKeyState(key, true);
                 },
-                keyRelease: function (key, code) {
+                keyRelease: function (key) {
                     input.setKeyState(key, false);
 
                     switch (key) {
@@ -452,6 +414,15 @@
         }
     };
 
+    // Browser lock API
+    document.onpointerlockchange = () => {
+        event.pub(POINTER_LOCK_CHANGE, document.pointerLockElement);
+    }
+
+    document.onfullscreenchange = async () => {
+        event.pub(FULLSCREEN_CHANGE, document.fullscreenElement);
+    }
+
     // subscriptions
     event.sub(MESSAGE, onMessage);
 
@@ -489,11 +460,19 @@
     event.sub(MENU_HANDLER_ATTACHED, (data) => {
         menuScreen.addEventListener(data.event, data.handler, {passive: true});
     });
-    // separate keyboard handler
+
+    // keyboard handler in the Screen Lock mode
     event.sub(KEYBOARD_KEY_DOWN, (v) => state.keyboardInput?.(true, v));
     event.sub(KEYBOARD_KEY_UP, (v) => state.keyboardInput?.(false, v));
+
+    // mouse handler in the Screen Lock mode
+    event.sub(MOUSE_MOVED, (e) => state.mouseMove?.(e))
+    event.sub(MOUSE_PRESSED, (e) => state.mousePress?.(e))
+
+    // general keyboard handler
     event.sub(KEY_PRESSED, onKeyPress);
     event.sub(KEY_RELEASED, onKeyRelease);
+
     event.sub(SETTINGS_CHANGED, () => message.show('Settings have been updated'));
     event.sub(AXIS_CHANGED, onAxisChanged);
     event.sub(CONTROLLER_UPDATED, data => webrtc.input(data));

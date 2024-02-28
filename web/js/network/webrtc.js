@@ -14,6 +14,7 @@ const webrtc = (() => {
     let connection;
     let dataChannel;
     let keyboardChannel;
+    let mouseChannel;
     let mediaStream;
     let candidates = [];
     let isAnswered = false;
@@ -36,18 +37,24 @@ const webrtc = (() => {
 
             if (e.channel.label === 'keyboard') {
                 keyboardChannel = e.channel;
-            } else {
-                dataChannel = e.channel;
-                dataChannel.onopen = () => {
-                    log.info('[rtc] the input channel has been opened');
-                    inputReady = true;
-                    event.pub(WEBRTC_CONNECTION_READY)
-                };
-                if (onData) {
-                    dataChannel.onmessage = onData;
-                }
-                dataChannel.onclose = () => log.info('[rtc] the input channel has been closed');
+                return;
             }
+
+            if (e.channel.label === 'mouse') {
+                mouseChannel = e.channel
+                return;
+            }
+
+            dataChannel = e.channel;
+            dataChannel.onopen = () => {
+                log.info('[rtc] the input channel has been opened');
+                inputReady = true;
+                event.pub(WEBRTC_CONNECTION_READY)
+            };
+            if (onData) {
+                dataChannel.onmessage = onData;
+            }
+            dataChannel.onclose = () => log.info('[rtc] the input channel has been closed');
         }
         connection.oniceconnectionstatechange = ice.onIceConnectionStateChange;
         connection.onicegatheringstatechange = ice.onIceStateChange;
@@ -76,6 +83,10 @@ const webrtc = (() => {
         if (keyboardChannel) {
             keyboardChannel.close();
             keyboardChannel = null;
+        }
+        if (mouseChannel) {
+            mouseChannel.close();
+            mouseChannel = null;
         }
         candidates = Array();
         log.info('[rtc] WebRTC has been closed');
@@ -174,6 +185,8 @@ const webrtc = (() => {
             });
             isFlushing = false;
         },
+        keyboard: (data) => keyboardChannel.send(data),
+        mouse: (data) => mouseChannel.send(data),
         input: (data) => dataChannel.send(data),
         isConnected: () => connected,
         isInputReady: () => inputReady,

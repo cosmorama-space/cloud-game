@@ -17,6 +17,7 @@ type Peer struct {
 	log        *logger.Logger
 	OnMessage  func(data []byte)
 	OnKeyboard func(data []byte)
+	OnMouse    func(data []byte)
 
 	a *webrtc.TrackLocalStaticSample
 	v *webrtc.TrackLocalStaticSample
@@ -108,6 +109,17 @@ func (p *Peer) NewCall(vCodec, aCodec string, onICECandidate func(ice any)) (sdp
 		}
 	})
 	p.log.Debug().Msg("Added [keyboard] chan")
+
+	mChan, err := p.addDataChannel("mouse")
+	if err != nil {
+		return "", err
+	}
+	mChan.OnMessage(func(m webrtc.DataChannelMessage) {
+		if p.OnMouse != nil {
+			p.OnMouse(m.Data)
+		}
+	})
+	p.log.Debug().Msg("Added [mouse] chan")
 
 	p.conn.OnICEConnectionStateChange(p.handleICEState(func() { p.log.Info().Msg("Connected") }))
 	// Stream provider supposes to send offer

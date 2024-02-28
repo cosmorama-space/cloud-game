@@ -82,20 +82,10 @@ const api = (() => {
     })();
 
     const mousePress = (() => {
-        // 0 1 2 3
-        // T L R M
-        const buffer = new ArrayBuffer(4);
+        // 0 1
+        // T B
+        const buffer = new ArrayBuffer(2);
         const dv = new DataView(buffer);
-
-        // #define RETRO_DEVICE_ID_MOUSE_LEFT             2
-        // #define RETRO_DEVICE_ID_MOUSE_RIGHT            3
-        // #define RETRO_DEVICE_ID_MOUSE_WHEELUP          4
-        // #define RETRO_DEVICE_ID_MOUSE_WHEELDOWN        5
-        // #define RETRO_DEVICE_ID_MOUSE_MIDDLE           6
-        // #define RETRO_DEVICE_ID_MOUSE_HORIZ_WHEELUP    7
-        // #define RETRO_DEVICE_ID_MOUSE_HORIZ_WHEELDOWN  8
-        // #define RETRO_DEVICE_ID_MOUSE_BUTTON_4         9
-        // #define RETRO_DEVICE_ID_MOUSE_BUTTON_5         10
 
         // 0: Main button pressed, usually the left button or the un-initialized state
         // 1: Auxiliary button pressed, usually the wheel button or the middle button (if present)
@@ -103,15 +93,12 @@ const api = (() => {
         // 3: Fourth button, typically the Browser Back button
         // 4: Fifth button, typically the Browser Forward button
 
-        const b2r = [1, 3, 2, 9, 10] // browser mouse button to retro button
+        const b2r = [1, 4, 2, 0, 0] // browser mouse button to retro button
+        // assumed that only one button pressed / released
 
-        /* @param buttons contains pressed state of mouse buttons according to
-         * https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
-         */
         return (button = 0, pressed = false) => {
-            dv.setUint32(0, 0);
             dv.setUint8(0, mouse.BUTTONS);
-            dv.setUint8(b2r[button], +pressed);
+            dv.setUint8(1, pressed ? b2r[button] : 0);
             webrtc.mouse(buffer);
         }
     })();

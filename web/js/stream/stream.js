@@ -17,6 +17,7 @@ const stream = (() => {
             state = {
                 screen: screen,
                 fullscreen: false,
+                kbmLock: false,
                 timerId: null,
                 w: 0,
                 h: 0,
@@ -46,6 +47,23 @@ const stream = (() => {
         }
 
         const getVideoEl = () => screen
+
+        const getActualVideoSize = () => {
+            if (state.fullscreen) {
+                // we can't get real <video> size without black bars, so we're trying to
+                // derive its dimensions from the known width or height
+                // and by calculating unknown dimension from the aspect ratio
+                const horizontal = screen.videoWidth > screen.videoHeight;
+                return {
+                    w: horizontal ? screen.offsetHeight * state.aspect : screen.offsetWidth,
+                    h: horizontal ? screen.offsetHeight : screen.offsetWidth * state.aspect
+                }
+            }
+
+            const size = screen.getBoundingClientRect()
+
+            return {w: size.width, h: size.height}
+        }
 
         screen.onerror = (e) => {
             // video playback failed - show a message saying why
@@ -87,31 +105,8 @@ const stream = (() => {
             screen.blur();
         })
 
-        screen.addEventListener('fullscreenchange', () => {
-            state.fullscreen = !!document.fullscreenElement;
-
-            const w = window.screen.width ?? window.innerWidth;
-            const h = window.screen.height ?? window.innerHeight;
-
-            const ww = document.documentElement.innerWidth;
-            const hh = document.documentElement.innerHeight;
-
-            screen.style.padding = '0'
-            if (state.fullscreen) {
-                const dw = (w - ww * state.aspect) / 2
-                screen.style.padding = `0 ${dw}px`
-                // chrome bug
-                setTimeout(() => {
-                    const dw = (h - hh * state.aspect) / 2
-                    screen.style.padding = `0 ${dw}px`
-                }, 1)
-            }
-            makeFullscreen(!!fullscreen);
-
-            screen.blur();
-
-            // !to flipped
-        })
+        const handlePointerDown = (e) => event.pub(MOUSE_PRESSED, {b: e.button, p: true});
+        const handlePointerUp = (e) => event.pub(MOUSE_PRESSED, {b: e.button, p: false});
 
         const makeFullscreen = (make = false) => {
             screen.classList.toggle('no-media-controls', make)
@@ -185,6 +180,71 @@ const stream = (() => {
             }
         });
 
+        let pointerLocked = false;
+
+        event.sub(FULLSCREEN_CHANGE, async (fullscreenEl) => {
+            state.fullscreen = !!fullscreenEl;
+
+            const w = window.screen.width ?? window.innerWidth;
+            const h = window.screen.height ?? window.innerHeight;
+
+            const ww = document.documentElement.innerWidth;
+            const hh = document.documentElement.innerHeight;
+
+            screen.style.padding = '0'
+            if (state.fullscreen) {
+                const dw = (w - ww * state.aspect) / 2
+                screen.style.padding = `0 ${dw}px`
+                // chrome bug
+                setTimeout(() => {
+                    const dw = (h - hh * state.aspect) / 2
+                    screen.style.padding = `0 ${dw}px`
+                }, 1)
+            }
+            makeFullscreen(state.fullscreen);
+
+            screen.blur();
+
+            if (!state.kbmLock) return;
+
+            if (state.fullscreen && !pointerLocked) {
+                // event.pub(POINTER_LOCK_CHANGE, screen);
+                await screen.requestPointerLock(
+                // { unadjustedMovement: true,}
+                );
+            }
+
+            screen.onpointerdown = state.fullscreen ? handlePointerDown : null;
+            screen.onpointerup = state.fullscreen ? handlePointerUp : null;
+
+            // !to flipped
+        })
+
+        let ex = 0, ey = 0;
+        const scaleCursorPos = (x, y) => {
+            const {w, h} = getActualVideoSize();
+
+            const sw = w / screen.videoWidth;
+            const sh = h / screen.videoHeight;
+
+            const rez = {
+                dx: x / sw + ex,
+                dy: y / sh + ey
+            }
+
+            ex = rez.dx % 1;
+            ey = rez.dy % 1;
+
+            rez.dx -= ex;
+            rez.dy -= ey;
+
+            return rez;
+        }
+
+        const handlePointerMove = (e) => {
+            // !to fix ff https://github.com/w3c/pointerlock/issues/42
+            event.pub(MOUSE_MOVED, scaleCursorPos(e.movementX, e.movementY));
+        }
 
         const fit = 'contain'
 
@@ -205,6 +265,16 @@ const stream = (() => {
             state.screen.setAttribute('width', '' + ww)
             state.screen.setAttribute('height', '' + hh)
             state.screen.style.aspectRatio = '' + state.aspect
+        })
+
+        event.sub(KB_MOUSE_FLAG, () => {
+            console.info('Keyboard and mouse will be locked in fullscreen');
+            state.kbmLock = true;
+            event.sub(POINTER_LOCK_CHANGE, (lockedEl) => {
+                pointerLocked = lockedEl === screen;
+                screen.onpointermove = pointerLocked ? handlePointerMove : null;
+                log.debug(`Pointer lock: ${pointerLocked}`);
+            });
         })
 
         return {

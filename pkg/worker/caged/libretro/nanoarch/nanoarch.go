@@ -396,7 +396,7 @@ func (n *Nanoarch) InputMouse(_ int, data []byte) {
 	case MouseMove:
 		n.mouse.ShiftPos(state)
 	case MouseButton:
-		n.mouse.SetButtons(state)
+		n.mouse.SetButtons(state[0])
 	}
 }
 

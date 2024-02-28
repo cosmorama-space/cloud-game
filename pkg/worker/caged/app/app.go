@@ -15,6 +15,8 @@ type App interface {
 	SetDataCb(func([]byte))
 	InputGamepad(port int, data []byte)
 	InputKeyboard(port int, data []byte)
+	InputMouse(port int, data []byte)
+	KbMouseSupport() bool
 }
 
 type Audio struct {

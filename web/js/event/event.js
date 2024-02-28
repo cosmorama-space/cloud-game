@@ -93,6 +93,11 @@ const KEYBOARD_KEY_DOWN = 'keyboardKeyDown';
 const KEYBOARD_KEY_UP = 'keyboardKeyUp';
 const AXIS_CHANGED = 'axisChanged';
 const CONTROLLER_UPDATED = 'controllerUpdated';
+const MOUSE_MOVED = 'mouseMoved';
+const MOUSE_PRESSED = 'mousePressed';
+
+const FULLSCREEN_CHANGE = 'fsc';
+const POINTER_LOCK_CHANGE = 'plc';
 
 const DPAD_TOGGLE = 'dpadToggle';
 const STATS_TOGGLE = 'statsToggle';
@@ -104,3 +109,4 @@ const RECORDING_TOGGLED = 'recordingToggle'
 const RECORDING_STATUS_CHANGED = 'recordingStatusChanged'
 
 const APP_VIDEO_CHANGED = 'appVideoChanged'
+const KB_MOUSE_FLAG = 'kbMouseFlag'

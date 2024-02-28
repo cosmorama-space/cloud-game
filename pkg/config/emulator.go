@@ -47,6 +47,7 @@ type LibretroCoreConfig struct {
 	Height          int
 	Hid             map[int][]int
 	IsGlAllowed     bool
+	KbMouseSupport  bool
 	Lib             string
 	Options         map[string]string
 	Roms            []string

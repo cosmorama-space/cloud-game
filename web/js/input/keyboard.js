@@ -100,6 +100,22 @@ const keyboard = (() => {
 
     event.sub(DPAD_TOGGLE, (data) => onDpadToggle(data.checked));
 
+    event.sub(KB_MOUSE_FLAG, () => {
+        const supportsKeyboardLock =
+            ('keyboard' in navigator) && ('lock' in navigator.keyboard);
+
+        if (supportsKeyboardLock) {
+            event.sub(FULLSCREEN_CHANGE, async (fullscreenEl) => {
+                enabled = !fullscreenEl;
+                enabled ? navigator.keyboard.unlock() : await navigator.keyboard.lock();
+                log.debug(`Keyboard lock: ${!enabled}`);
+            })
+        } else {
+            log.warn('Browser doesn\'t support keyboard lock!');
+        }
+    })
+
+
     return {
         init: () => {
             keyMap = settings.loadOr(opts.INPUT_KEYBOARD_MAP, defaultMap);
@@ -135,8 +151,5 @@ const keyboard = (() => {
         }, settings: {
             remap
         },
-        toggle: (v) => {
-            enabled = v !== undefined ? v : !enabled;
-        }
     }
 })(event, document, KEY, log, opts, settings);

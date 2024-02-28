@@ -88,6 +88,8 @@ func (c *Caged) ViewportSize() (int, int)            { return c.base.ViewportSiz
 func (c *Caged) Scale() float64                      { return c.Emulator.Scale() }
 func (c *Caged) InputGamepad(port int, data []byte)  { c.base.Input(port, RetroPad, data) }
 func (c *Caged) InputKeyboard(port int, data []byte) { c.base.Input(port, Keyboard, data) }
+func (c *Caged) InputMouse(port int, data []byte)    { c.base.Input(port, Mouse, data) }
+func (c *Caged) KbMouseSupport() bool                { return c.base.KbMouseSupport() }
 func (c *Caged) Start()                              { go c.Emulator.Start() }
 func (c *Caged) SetSaveOnClose(v bool)               { c.base.SaveOnClose = v }
 func (c *Caged) SetSessionId(name string)            { c.base.SetSessionId(name) }
