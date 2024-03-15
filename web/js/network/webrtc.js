@@ -13,6 +13,7 @@
 const webrtc = (() => {
     let connection;
     let dataChannel;
+    let keyboardChannel;
     let mediaStream;
     let candidates = [];
     let isAnswered = false;
@@ -33,16 +34,20 @@ const webrtc = (() => {
             log.debug('[rtc] ondatachannel', e.channel.label)
             e.channel.binaryType = "arraybuffer";
 
-            dataChannel = e.channel;
-            dataChannel.onopen = () => {
-                log.info('[rtc] the input channel has been opened');
-                inputReady = true;
-                event.pub(WEBRTC_CONNECTION_READY)
-            };
-            if (onData) {
-                dataChannel.onmessage = onData;
+            if (e.channel.label === 'keyboard') {
+                keyboardChannel = e.channel;
+            } else {
+                dataChannel = e.channel;
+                dataChannel.onopen = () => {
+                    log.info('[rtc] the input channel has been opened');
+                    inputReady = true;
+                    event.pub(WEBRTC_CONNECTION_READY)
+                };
+                if (onData) {
+                    dataChannel.onmessage = onData;
+                }
+                dataChannel.onclose = () => log.info('[rtc] the input channel has been closed');
             }
-            dataChannel.onclose = () => log.info('[rtc] the input channel has been closed');
         }
         connection.oniceconnectionstatechange = ice.onIceConnectionStateChange;
         connection.onicegatheringstatechange = ice.onIceStateChange;
@@ -67,6 +72,10 @@ const webrtc = (() => {
         if (dataChannel) {
             dataChannel.close();
             dataChannel = null;
+        }
+        if (keyboardChannel) {
+            keyboardChannel.close();
+            keyboardChannel = null;
         }
         candidates = Array();
         log.info('[rtc] WebRTC has been closed');

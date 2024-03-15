@@ -12,10 +12,11 @@ import (
 )
 
 type Peer struct {
-	api       *ApiFactory
-	conn      *webrtc.PeerConnection
-	log       *logger.Logger
-	OnMessage func(data []byte)
+	api        *ApiFactory
+	conn       *webrtc.PeerConnection
+	log        *logger.Logger
+	OnMessage  func(data []byte)
+	OnKeyboard func(data []byte)
 
 	a *webrtc.TrackLocalStaticSample
 	v *webrtc.TrackLocalStaticSample
@@ -82,10 +83,31 @@ func (p *Peer) NewCall(vCodec, aCodec string, onICECandidate func(ice any)) (sdp
 	p.a = audio
 
 	// plug in the [data] channel (in and out)
-	if err = p.addDataChannel("data"); err != nil {
+	dChan, err := p.addDataChannel("data")
+	if err != nil {
 		return "", err
 	}
+	dChan.OnMessage(func(m webrtc.DataChannelMessage) {
+		if len(m.Data) == 0 {
+			return
+		}
+		if p.OnMessage != nil {
+			p.OnMessage(m.Data)
+		}
+	})
+	p.d = dChan
 	p.log.Debug().Msg("Added [data] chan")
+
+	kChan, err := p.addDataChannel("keyboard")
+	if err != nil {
+		return "", err
+	}
+	kChan.OnMessage(func(m webrtc.DataChannelMessage) {
+		if p.OnKeyboard != nil {
+			p.OnKeyboard(m.Data)
+		}
+	})
+	p.log.Debug().Msg("Added [keyboard] chan")
 
 	p.conn.OnICEConnectionStateChange(p.handleICEState(func() { p.log.Info().Msg("Connected") }))
 	// Stream provider supposes to send offer
@@ -232,29 +254,19 @@ func (p *Peer) Disconnect() {
 	p.log.Debug().Msg("WebRTC stop")
 }
 
-// addDataChannel creates a new WebRTC data channel for user input.
+// addDataChannel creates new WebRTC data channel.
 // Default params -- ordered: true, negotiated: false.
-func (p *Peer) addDataChannel(label string) error {
+func (p *Peer) addDataChannel(label string) (*webrtc.DataChannel, error) {
 	ch, err := p.conn.CreateDataChannel(label, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ch.OnOpen(func() {
-		p.log.Debug().Str("label", ch.Label()).Uint16("id", *ch.ID()).
-			Msg("Data channel [input] opened")
+		p.log.Debug().Uint16("id", *ch.ID()).Msgf("Data channel [%v] opened", ch.Label())
 	})
 	ch.OnError(p.logx)
-	ch.OnMessage(func(m webrtc.DataChannelMessage) {
-		if len(m.Data) == 0 {
-			return
-		}
-		if p.OnMessage != nil {
-			p.OnMessage(m.Data)
-		}
-	})
-	p.d = ch
-	ch.OnClose(func() { p.log.Debug().Msg("Data channel [input] has been closed") })
-	return nil
+	ch.OnClose(func() { p.log.Debug().Msgf("Data channel [%v] has been closed", ch.Label()) })
+	return ch, nil
 }
 
 func (p *Peer) logx(err error) { p.log.Error().Err(err) }

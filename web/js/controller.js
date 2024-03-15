@@ -52,6 +52,7 @@
 
     const onGameRoomAvailable = () => {
         // room is ready
+        stream.forceFullscreenMaybe();
     };
 
     const onConnectionReady = () => {
@@ -138,7 +139,6 @@
         input.poll.disable();
         gui.hide(menuScreen);
         stream.toggle(true);
-        stream.forceFullscreenMaybe();
         gui.show(keyButtons[KEY.SAVE]);
         gui.show(keyButtons[KEY.LOAD]);
         // end clear
@@ -209,8 +209,27 @@
             if (KEY.HELP === data.key) helpScreen.show(true, event);
         }
 
-        state.keyPress(data.key);
+        state.keyPress(data.key, data.code);
     };
+
+    // Feature detection.
+    const supportsKeyboardLock =
+        ('keyboard' in navigator) && ('lock' in navigator.keyboard);
+
+    if (supportsKeyboardLock) {
+        document.addEventListener('fullscreenchange', async () => {
+            if (document.fullscreenElement) {
+                await navigator.keyboard.lock();
+                keyboard.toggle(false);
+                return console.log('Keyboard locked.');
+            }
+            navigator.keyboard.unlock();
+            keyboard.toggle(true);
+            console.log('Keyboard unlocked.');
+        });
+    } else {
+        console.warn('Browser doesn\'t support keyboard lock!');
+    }
 
     // pre-state key release handler
     const onKeyRelease = data => {
@@ -236,7 +255,7 @@
         // change app state if settings
         if (KEY.SETTINGS === data.key) setState(app.state.settings);
 
-        state.keyRelease(data.key);
+        state.keyRelease(data.key, data.code);
     };
 
     const updatePlayerIndex = (idx, not_game = false) => {
@@ -360,8 +379,31 @@
                 ..._default,
                 name: 'game',
                 axisChanged: (id, value) => input.setAxisChanged(id, value),
-                keyPress: key => input.setKeyState(key, true),
-                keyRelease: function (key) {
+                keyboardInput: (down, e) => {
+                    const buffer = new ArrayBuffer(7);
+                    const dv = new DataView(buffer);
+
+                    // 0 1 2 3 4 5 6
+                    dv.setUint8(4, down ? 1 : 0)
+                    const k = libretro.map('', e.code);
+                    dv.setUint32(0, k, true)
+
+                    // meta keys
+                    let mod = 0;
+
+                    e.altKey && (mod |= libretro.mod.ALT)
+                    e.ctrlKey && (mod |= libretro.mod.CTRL)
+                    e.metaKey && (mod |= libretro.mod.META)
+                    e.shiftKey && (mod |= libretro.mod.SHIFT)
+
+                    dv.setUint16(5, mod, true)
+
+                    webrtc.keyboard(buffer);
+                },
+                keyPress: (key, code) => {
+                    input.setKeyState(key, true);
+                },
+                keyRelease: function (key, code) {
                     input.setKeyState(key, false);
 
                     switch (key) {
@@ -447,6 +489,9 @@
     event.sub(MENU_HANDLER_ATTACHED, (data) => {
         menuScreen.addEventListener(data.event, data.handler, {passive: true});
     });
+    // separate keyboard handler
+    event.sub(KEYBOARD_KEY_DOWN, (v) => state.keyboardInput?.(true, v));
+    event.sub(KEYBOARD_KEY_UP, (v) => state.keyboardInput?.(false, v));
     event.sub(KEY_PRESSED, onKeyPress);
     event.sub(KEY_RELEASED, onKeyRelease);
     event.sub(SETTINGS_CHANGED, () => message.show('Settings have been updated'));

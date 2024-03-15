@@ -40,6 +40,7 @@ const keyboard = (() => {
 
     let keyMap = {};
     let isKeysFilteredMode = true;
+    let enabled = true;
 
     const remap = (map = {}) => {
         settings.set(opts.INPUT_KEYBOARD_MAP, map);
@@ -82,7 +83,6 @@ const keyboard = (() => {
 
     const onKey = (code, evt, state) => {
         const key = keyMap[code]
-        if (key === undefined) return
 
         if (dpadState[key] !== undefined) {
             dpadState[key] = state
@@ -95,7 +95,7 @@ const keyboard = (() => {
                 return
             }
         }
-        event.pub(evt, {key: key})
+        event.pub(evt, {key: key, code: code})
     }
 
     event.sub(DPAD_TOGGLE, (data) => onDpadToggle(data.checked));
@@ -104,28 +104,39 @@ const keyboard = (() => {
         init: () => {
             keyMap = settings.loadOr(opts.INPUT_KEYBOARD_MAP, defaultMap);
             const body = document.body;
+
             // !to use prevent default as everyone
             body.addEventListener('keyup', e => {
+                // e.preventDefault();
                 e.stopPropagation();
-                if (isKeysFilteredMode) {
-                    onKey(e.code, KEY_RELEASED, false)
-                } else {
-                    event.pub(KEYBOARD_KEY_PRESSED, {key: e.code});
+
+                let lock = !enabled;
+
+                // hack with Esc up when outside of lock
+                if (e.code === 'Escape') {
+                    lock = true
                 }
+
+                isKeysFilteredMode ?
+                    (lock ? event.pub(KEYBOARD_KEY_UP, e) : onKey(e.code, KEY_RELEASED, false))
+                    : event.pub(KEYBOARD_KEY_PRESSED, {key: e.code});
             }, false);
 
             body.addEventListener('keydown', e => {
+                // e.preventDefault();
                 e.stopPropagation();
-                if (isKeysFilteredMode) {
-                    onKey(e.code, KEY_PRESSED, true)
-                } else {
+
+                isKeysFilteredMode ?
+                    (enabled ? onKey(e.code, KEY_PRESSED, true) : event.pub(KEYBOARD_KEY_DOWN, e)) :
                     event.pub(KEYBOARD_KEY_PRESSED, {key: e.code});
-                }
             });
 
             log.info('[input] keyboard has been initialized');
         }, settings: {
             remap
+        },
+        toggle: (v) => {
+            enabled = v !== undefined ? v : !enabled;
         }
     }
 })(event, document, KEY, log, opts, settings);

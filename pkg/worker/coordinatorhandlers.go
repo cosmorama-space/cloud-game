@@ -170,7 +170,9 @@ func (c *coordinator) HandleGameStart(rq api.StartGameRequest[com.Uid], w *Worke
 	}
 
 	c.log.Debug().Msg("Start session input poll")
-	room.WithWebRTC(user.Session).OnMessage = func(data []byte) { r.App().SendControl(user.Index, data) }
+	s := room.WithWebRTC(user.Session)
+	s.OnMessage = func(data []byte) { r.App().InputGamepad(user.Index, data) }
+	s.OnKeyboard = func(data []byte) { r.App().InputKeyboard(user.Index, data) }
 
 	c.RegisterRoom(r.Id())
 

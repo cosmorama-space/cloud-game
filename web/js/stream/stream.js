@@ -83,6 +83,10 @@ const stream = (() => {
             useCustomScreen(options.mirrorMode === 'mirror');
         }, false);
 
+        screen.addEventListener('focus', () => {
+            screen.blur();
+        })
+
         screen.addEventListener('fullscreenchange', () => {
             state.fullscreen = !!document.fullscreenElement;
 
@@ -101,10 +105,10 @@ const stream = (() => {
                     const dw = (h - hh * state.aspect) / 2
                     screen.style.padding = `0 ${dw}px`
                 }, 1)
-                makeFullscreen(true);
-            } else {
-                makeFullscreen(false);
             }
+            makeFullscreen(!!fullscreen);
+
+            screen.blur();
 
             // !to flipped
         })

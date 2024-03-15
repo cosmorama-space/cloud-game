@@ -89,6 +89,8 @@ const KEY_PRESSED = 'keyPressed';
 const KEY_RELEASED = 'keyReleased';
 const KEYBOARD_TOGGLE_FILTER_MODE = 'keyboardToggleFilterMode';
 const KEYBOARD_KEY_PRESSED = 'keyboardKeyPressed';
+const KEYBOARD_KEY_DOWN = 'keyboardKeyDown';
+const KEYBOARD_KEY_UP = 'keyboardKeyUp';
 const AXIS_CHANGED = 'axisChanged';
 const CONTROLLER_UPDATED = 'controllerUpdated';
 

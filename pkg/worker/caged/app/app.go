@@ -13,7 +13,8 @@ type App interface {
 	SetAudioCb(func(Audio))
 	SetVideoCb(func(Video))
 	SetDataCb(func([]byte))
-	SendControl(port int, data []byte)
+	InputGamepad(port int, data []byte)
+	InputKeyboard(port int, data []byte)
 }
 
 type Audio struct {
